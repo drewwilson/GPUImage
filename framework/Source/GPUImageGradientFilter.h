@@ -8,7 +8,12 @@
 
 #pragma mark
 
-@interface GPUImageGradientRadialFilter : GPUImageFilter
+@interface GPUImageGradientFilter : GPUImageFilter
+@end
+
+#pragma mark
+
+@interface GPUImageGradientRadialFilter : GPUImageGradientFilter
 
 // Default of (0.5, 0.5)
 @property(readwrite, nonatomic) CGPoint center;
@@ -29,7 +34,7 @@
 
 #pragma mark
 
-@interface GPUImageGradientLinearFilter : GPUImageFilter
+@interface GPUImageGradientLinearFilter : GPUImageGradientFilter
 
 // Default of (0.5, 0.5)
 @property(readwrite, nonatomic) CGPoint center;

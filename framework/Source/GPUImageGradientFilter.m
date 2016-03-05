@@ -9,6 +9,64 @@
 #define FTCColor NSColor
 #endif
 
+@implementation GPUImageGradientFilter : GPUImageFilter
+
+- (GLfloat *)floatArrayWithSteps:(NSArray *)steps {
+   GLsizei stepCount = (GLsizei)[steps count];
+   GLfloat *cSteps = malloc(stepCount * sizeof(GLfloat));
+   for (int i=0; i<stepCount; i++) {
+      cSteps[i] = [steps[i] floatValue];
+   }
+   return cSteps;
+}
+
+- (GLfloat *)floatArrayWithColors:(NSArray *)colors {
+   GLfloat *cColors = malloc((GLsizei)[colors count] * 4 * sizeof(GLfloat));
+   GLsizei j = 0;
+   for (FTCColor *aColor in colors) {
+      const CGFloat *comps = CGColorGetComponents(aColor.CGColor);
+#if TARGET_IPHONE_SIMULATOR || TARGET_OS_IPHONE
+      FTCColor *color = aColor;
+#else
+      NSColorSpace *colorSpace = [NSColorSpace sRGBColorSpace];
+      FTCColor *color = [NSColor colorWithColorSpace:colorSpace components:comps count:4];
+#endif
+      cColors[j+3] = comps[3];
+      //
+      CGFloat rgb[3];
+      [self getRGBComponents:rgb forColor:color];
+      cColors[j]   = rgb[0];
+      cColors[j+1] = rgb[1];
+      cColors[j+2] = rgb[2];
+      j += 4;
+   }
+   return cColors;
+}
+
+- (void)getRGBComponents:(CGFloat [3])components forColor:(FTCColor *)color {
+   CGColorSpaceRef rgbColorSpace = CGColorSpaceCreateDeviceRGB();
+   unsigned char buffer[4];
+   CGContextRef context = CGBitmapContextCreate(&buffer,
+                                                1,
+                                                1,
+                                                8,
+                                                4,
+                                                rgbColorSpace,
+                                                kCGImageAlphaNoneSkipLast);
+   CGContextSetFillColorWithColor(context, [color CGColor]);
+   CGContextFillRect(context, CGRectMake(0, 0, 1, 1));
+   CGContextRelease(context);
+   CGColorSpaceRelease(rgbColorSpace);
+   
+   for (int i = 0; i < 3; i++) {
+      components[i] = buffer[i] / 255.0f;
+   }
+}
+
+@end
+
+#pragma mark
+
 @implementation GPUImageFilter (Float4Array)
 
 - (void)setFloat4Array:(GLfloat *)arrayValue length:(GLsizei)arrayLength forUniform:(GLint)uniform program:(GLProgram *)shaderProgram {
@@ -25,33 +83,6 @@
 }
 
 @end
-
-#pragma mark
-
-GLfloat * CreateFloatArrayWithSteps(NSArray *steps);
-GLfloat * CreateFloatArrayWithSteps(NSArray *steps) {
-   GLsizei stepCount = (GLsizei)[steps count];
-   GLfloat *cSteps = malloc(stepCount * sizeof(GLfloat));
-   for (int i=0; i<stepCount; i++) {
-      cSteps[i] = [steps[i] floatValue];
-   }
-   return cSteps;
-}
-
-GLfloat * CreateFloatArrayWithColors(NSArray *colors);
-GLfloat * CreateFloatArrayWithColors(NSArray *colors) {
-   GLfloat *cColors = malloc((GLsizei)[colors count] * 4 * sizeof(GLfloat));
-   GLsizei j = 0;
-   for (FTCColor *color in colors) {
-      const CGFloat *aColor = CGColorGetComponents(color.CGColor);
-      cColors[j] = aColor[0];
-      cColors[j+1] = aColor[1];
-      cColors[j+2] = aColor[2];
-      cColors[j+3] = aColor[3];
-      j += 4;
-   }
-   return cColors;
-}
 
 #pragma mark - GPUImageGradientRadialFilter
 
@@ -188,12 +219,12 @@ NSString *const kGPUImageGradientRadialFilterFragmentShaderString = SHADER_STRIN
    [self setInteger:count forUniform:countUniform program:filterProgram];
    
    // Steps
-   GLfloat *cSteps = CreateFloatArrayWithSteps(steps);
+   GLfloat *cSteps = [self floatArrayWithSteps:steps];
    [self setFloatArray:cSteps length:count forUniform:stepsUniform program:filterProgram];
    free(cSteps);
    
    // Colors
-   GLfloat *cColors = CreateFloatArrayWithColors(colors);
+   GLfloat *cColors = [self floatArrayWithColors:colors];
    [self setFloat4Array:cColors length:(GLsizei)[colors count]*4 forUniform:colorsUniform program:filterProgram];
    free(cColors);
 }
@@ -331,12 +362,12 @@ NSString *const kGPUImageGradientLinearFilterFragmentShaderString = SHADER_STRIN
    [self setInteger:count forUniform:countUniform program:filterProgram];
    
    // Steps
-   GLfloat *cSteps = CreateFloatArrayWithSteps(steps);
+   GLfloat *cSteps = [self floatArrayWithSteps:steps];
    [self setFloatArray:cSteps length:count forUniform:stepsUniform program:filterProgram];
    free(cSteps);
    
    // Colors
-   GLfloat *cColors = CreateFloatArrayWithColors(colors);
+   GLfloat *cColors = [self floatArrayWithColors:colors];
    [self setFloat4Array:cColors length:(GLsizei)[colors count]*4 forUniform:colorsUniform program:filterProgram];
    free(cColors);
 }

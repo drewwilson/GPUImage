@@ -45,7 +45,7 @@ NSString *const kGPUImageSolidColorFilterFragmentShaderString = SHADER_STRING
    if (!self) {
       return nil;
    }
-
+   
    colorUniform = [filterProgram uniformIndex:@"color"];
    
    self.color = [FTCColor redColor];
@@ -57,22 +57,44 @@ NSString *const kGPUImageSolidColorFilterFragmentShaderString = SHADER_STRING
 
 - (void)setColor:(FTCColor *)color {
    _color = color;
-   const CGFloat *colors = CGColorGetComponents(color.CGColor);
-   CGFloat correction = 0.5;
+   
+   const CGFloat *comps = CGColorGetComponents(color.CGColor);
+#if TARGET_IPHONE_SIMULATOR || TARGET_OS_IPHONE
+#else
+   NSColorSpace *colorSpace = [NSColorSpace sRGBColorSpace];
+   color = [NSColor colorWithColorSpace:colorSpace components:comps count:4];
+#endif
+   
    CGFloat r, g, b, a;
-   if (correction != 0.0) {
-      r = colors[0] - colors[0]*correction;
-      g = colors[1] - colors[1]*correction;
-      b = colors[2] - colors[2]*correction;
-      a = colors[3];
-   } else {
-      r = colors[0];
-      g = colors[1];
-      b = colors[2];
-      a = colors[3];
-   }
+   a = comps[3];
+   
+   CGFloat rgb[3];
+   [self getRGBComponents:rgb forColor:color];
+   r = rgb[0];
+   g = rgb[1];
+   b = rgb[2];
    
    [self setVec4:(GPUVector4){r,g,b,a} forUniform:colorUniform program:filterProgram];
+}
+
+- (void)getRGBComponents:(CGFloat [3])components forColor:(FTCColor *)color {
+   CGColorSpaceRef rgbColorSpace = CGColorSpaceCreateDeviceRGB();
+   unsigned char buffer[4];
+   CGContextRef context = CGBitmapContextCreate(&buffer,
+                                                1,
+                                                1,
+                                                8,
+                                                4,
+                                                rgbColorSpace,
+                                                kCGImageAlphaNoneSkipLast);
+   CGContextSetFillColorWithColor(context, [color CGColor]);
+   CGContextFillRect(context, CGRectMake(0.0, 0.0, 1.0, 1.0));
+   CGContextRelease(context);
+   CGColorSpaceRelease(rgbColorSpace);
+   
+   for (int i = 0; i < 3; i++) {
+      components[i] = buffer[i] / 255.0f;
+   }
 }
 
 @end

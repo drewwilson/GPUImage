@@ -58,23 +58,29 @@ NSString *const kGPUImageSolidColorFilterFragmentShaderString = SHADER_STRING
 - (void)setColor:(FTCColor *)color {
    _color = color;
    
-   const CGFloat *colors = CGColorGetComponents(color.CGColor);
+   const CGFloat *comps = CGColorGetComponents(color.CGColor);
+#if TARGET_IPHONE_SIMULATOR || TARGET_OS_IPHONE
+#else
+   NSColorSpace *colorSpace = [NSColorSpace sRGBColorSpace];
+   color = [NSColor colorWithColorSpace:colorSpace components:comps count:4];
+#endif
+   
    CGFloat r, g, b, a;
-   a = colors[3];
-   //
-   CGFloat components[3];
-   [self getRGBComponents:components forColor:color];
-   r = components[0];
-   g = components[1];
-   b = components[2];
+   a = comps[3];
+   
+   CGFloat rgb[3];
+   [self getRGBComponents:rgb forColor:color];
+   r = rgb[0];
+   g = rgb[1];
+   b = rgb[2];
    
    [self setVec4:(GPUVector4){r,g,b,a} forUniform:colorUniform program:filterProgram];
 }
 
 - (void)getRGBComponents:(CGFloat [3])components forColor:(FTCColor *)color {
    CGColorSpaceRef rgbColorSpace = CGColorSpaceCreateDeviceRGB();
-   unsigned char resultingPixel[4];
-   CGContextRef context = CGBitmapContextCreate(&resultingPixel,
+   unsigned char buffer[4];
+   CGContextRef context = CGBitmapContextCreate(&buffer,
                                                 1,
                                                 1,
                                                 8,
@@ -82,12 +88,12 @@ NSString *const kGPUImageSolidColorFilterFragmentShaderString = SHADER_STRING
                                                 rgbColorSpace,
                                                 kCGImageAlphaNoneSkipLast);
    CGContextSetFillColorWithColor(context, [color CGColor]);
-   CGContextFillRect(context, CGRectMake(0, 0, 1, 1));
+   CGContextFillRect(context, CGRectMake(0.0, 0.0, 1.0, 1.0));
    CGContextRelease(context);
    CGColorSpaceRelease(rgbColorSpace);
    
-   for (int component = 0; component < 3; component++) {
-      components[component] = resultingPixel[component] / 255.0f;
+   for (int i = 0; i < 3; i++) {
+      components[i] = buffer[i] / 255.0f;
    }
 }
 

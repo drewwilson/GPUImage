@@ -23,15 +23,21 @@
 - (GLfloat *)floatArrayWithColors:(NSArray *)colors {
    GLfloat *cColors = malloc((GLsizei)[colors count] * 4 * sizeof(GLfloat));
    GLsizei j = 0;
-   for (FTCColor *color in colors) {
-      const CGFloat *colors = CGColorGetComponents(color.CGColor);
-      cColors[j+3] = colors[3];
+   for (FTCColor *aColor in colors) {
+      const CGFloat *comps = CGColorGetComponents(aColor.CGColor);
+#if TARGET_IPHONE_SIMULATOR || TARGET_OS_IPHONE
+      FTCColor *color = aColor;
+#else
+      NSColorSpace *colorSpace = [NSColorSpace sRGBColorSpace];
+      FTCColor *color = [NSColor colorWithColorSpace:colorSpace components:comps count:4];
+#endif
+      cColors[j+3] = comps[3];
       //
-      CGFloat components[3];
-      [self getRGBComponents:components forColor:color];
-      cColors[j] = components[0];
-      cColors[j+1] = components[1];
-      cColors[j+2] = components[2];
+      CGFloat rgb[3];
+      [self getRGBComponents:rgb forColor:color];
+      cColors[j]   = rgb[0];
+      cColors[j+1] = rgb[1];
+      cColors[j+2] = rgb[2];
       j += 4;
    }
    return cColors;
@@ -39,8 +45,8 @@
 
 - (void)getRGBComponents:(CGFloat [3])components forColor:(FTCColor *)color {
    CGColorSpaceRef rgbColorSpace = CGColorSpaceCreateDeviceRGB();
-   unsigned char resultingPixel[4];
-   CGContextRef context = CGBitmapContextCreate(&resultingPixel,
+   unsigned char buffer[4];
+   CGContextRef context = CGBitmapContextCreate(&buffer,
                                                 1,
                                                 1,
                                                 8,
@@ -52,8 +58,8 @@
    CGContextRelease(context);
    CGColorSpaceRelease(rgbColorSpace);
    
-   for (int component = 0; component < 3; component++) {
-      components[component] = resultingPixel[component] / 255.0f;
+   for (int i = 0; i < 3; i++) {
+      components[i] = buffer[i] / 255.0f;
    }
 }
 
